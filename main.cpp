@@ -1,6 +1,11 @@
 // Virtual File System 
 #include <iostream>
+#include "fs/fs.h"
+// #include "disk/disk.h"
 
 int main () {
-    std::cout << "Hello World!" << '\n';
+
+    DiskManager disk("vdisk.img");
+    mkfs("vdisk.img");
+
 }
