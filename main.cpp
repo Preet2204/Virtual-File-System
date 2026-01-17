@@ -1,6 +1,17 @@
 // Virtual File System 
 #include <iostream>
+#include <string>
+#include "fs/fs.cpp"
 
 int main () {
-    std::cout << "Hello World!" << '\n';
+
+    try {
+        mkfs("vdisk.img");
+        std::cout << "Successful" << '\n';
+    }
+    catch (const std::exception& e) {
+        std::cerr << e.what() << '\n';
+    }
+
+
 }
