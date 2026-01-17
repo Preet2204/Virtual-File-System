@@ -48,6 +48,8 @@ public:
     explicit FileSystem(std::string diskImagePath) : disk(diskImagePath), isMounted(false) {}
 
     Inode readInode(uint32_t inode_index);
+    void writeInode(uint32_t inode_index, Inode inode);
+    uint32_t allocateInode();
 
 };
 

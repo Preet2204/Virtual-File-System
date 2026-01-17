@@ -43,7 +43,6 @@ void mkfs(std::string diskImagePath) {
     std::memset(buffer, 0, sizeof(buffer));
     std::memcpy(buffer, &super, sizeof(Superblock));
     disk.writeBlock(SUPERBLOCK, buffer);
-
     // Set Inode bitmap blocks to 0
     std::memset(buffer, 0, sizeof(buffer));
     for (int i = INODE_BITMAP_START; i <= INODE_BITMAP_END; ++i) {
@@ -146,5 +145,88 @@ Inode FileSystem::readInode(uint32_t inode_index) {
     std::memcpy(&inode, buffer + inode_offset, sizeof(Inode));
 
     return inode;
+}
 
+
+void FileSystem::writeInode(uint32_t inode_index, Inode inode) {
+
+    if (!isMounted) {
+        throw std::runtime_error(std::string("disk is not mounted yet. Invalid writeInode call"));
+    }
+
+    if (inode_index >= super_cache.total_inodes) {
+        throw std::invalid_argument(std::string("Invalid inode index: ") + std::to_string(inode_index));
+    }
+
+    uint32_t inode_bitmap_block = super_cache.inode_bitmap_start + (inode_index  / (super_cache.block_size * 8));
+    uint32_t inode_bitmap_bit = inode_index % (super_cache.block_size * 8);
+
+    char buffer[4096];
+
+    disk.readBlock(inode_bitmap_block, buffer);
+
+    if((buffer[inode_bitmap_bit / 8] & (1 << (inode_bitmap_bit % 8))) == 0) {
+        throw std::runtime_error(std::string("Invalid Inode index: Inode is unallocated - ") + std::to_string(inode_index));
+    }
+
+    uint32_t inode_per_block = super_cache.block_size / sizeof(Inode);
+    uint32_t inode_block = super_cache.inode_table_start + (inode_index / inode_per_block);
+    uint32_t inode_offset = sizeof(Inode) * (inode_index % inode_per_block);
+
+    disk.readBlock(inode_block, buffer);
+
+    std::memcpy(buffer + inode_offset, &inode, sizeof(Inode));
+
+    disk.writeBlock(inode_block, buffer);
+
+}
+
+uint32_t FileSystem::allocateInode() {
+
+    if (!isMounted) {
+        throw std::runtime_error(std::string("disk is not mounted yet. Invalid allocateInode call"));
+    }
+
+    char buffer[4096];
+    uint32_t free_block = 0;
+    uint32_t free_offset = 0;
+    bool found = false;
+    for(uint32_t block = super_cache.inode_bitmap_start; block <= super_cache.inode_bitmap_start + super_cache.inode_bitmap_count - 1; ++block) {
+        disk.readBlock(block, buffer);
+
+        for(uint32_t offset = 0; offset < 8 * super_cache.block_size; ++offset) {
+            if ((buffer[offset / 8] & (1 << (offset % 8))) == 0) {
+                uint32_t inode_index = (block - super_cache.inode_bitmap_start) * (8 * super_cache.block_size) + offset;
+                if (inode_index >= super_cache.total_inodes) {
+                    continue;
+                }
+                found = true;
+                free_block = block;
+                free_offset = offset;
+                break;
+            }
+        }
+
+        if (found) {
+            break;
+        }
+    }
+
+    if (!found) {
+        throw std::runtime_error(std::string("No Free Inode in disk"));
+    }
+
+    uint32_t inode_index = (free_block - super_cache.inode_bitmap_start) * (8 * super_cache.block_size) + free_offset;
+
+    buffer[free_offset / 8] |= (1 << (free_offset % 8));
+    disk.writeBlock(free_block, buffer);
+
+    Inode inode;
+    std::memset(&inode, 0, sizeof(Inode));
+    
+    inode.ref_count = 1;
+
+    writeInode(inode_index, inode);
+
+    return inode_index;
 }
