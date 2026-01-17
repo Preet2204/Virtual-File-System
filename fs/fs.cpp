@@ -207,9 +207,7 @@ uint32_t FileSystem::allocateInode() {
             }
         }
 
-        if (found) {
-            break;
-        }
+        if (found) break;
     }
 
     if (!found) {
@@ -229,4 +227,56 @@ uint32_t FileSystem::allocateInode() {
     writeInode(inode_index, inode);
 
     return inode_index;
+}
+
+uint32_t FileSystem::allocateDataBlock() {
+
+    if (!isMounted) {
+        throw std::runtime_error(std::string("disk is not mounted yet. Invalid allocateDataBlock call"));
+    }
+
+    char buffer[4096];
+
+    uint32_t free_block = 0;
+    uint32_t free_offset = 0;
+    bool found = false;
+
+    for(uint32_t block = super_cache.data_bitmap_start; block <= super_cache.data_bitmap_start + super_cache.data_bitmap_count - 1; ++block) {
+        disk.readBlock(block, buffer);
+        for(uint32_t offset = 0; offset < 8 * super_cache.block_size; ++offset) {
+            if((buffer[offset / 8] & (1 << (offset % 8))) == 0) {
+                uint32_t disk_block = (block - super_cache.data_bitmap_start) * (8 * super_cache.block_size) + offset;
+                if(disk_block >= super_cache.total_blocks) {
+                    continue;
+                }
+                free_block = block;
+                free_offset = offset;
+                found = true;
+                break;
+            }
+        }
+        if(found) break;
+    }
+
+    if(!found) {
+        throw std::runtime_error(std::string("No Free Data Block in disk"));
+    }
+
+    uint32_t disk_block = (free_block - super_cache.data_bitmap_start) * (8 * super_cache.block_size) + free_offset;
+
+    buffer[free_offset / 8] |= (1 << (free_offset % 8));
+    disk.writeBlock(free_block, buffer);
+
+    return disk_block;
+
+}
+
+void FileSystem::unmount() {
+
+    if (!isMounted) {
+        throw std::runtime_error(std::string("disk is not mounted yet. Invalid unmount call"));
+    }
+
+    isMount = false;
+
 }

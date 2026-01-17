@@ -50,6 +50,8 @@ public:
     Inode readInode(uint32_t inode_index);
     void writeInode(uint32_t inode_index, Inode inode);
     uint32_t allocateInode();
+    uint32_t allocateDataBlock();
+    void unmount();
 
 };
 
