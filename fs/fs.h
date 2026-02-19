@@ -2,6 +2,12 @@
 #include "../disk/disk.h"
 #define MAX_NAME_LEN 52
 
+// 0            -> Superblock
+// 1-2          -> Inode bitmap
+// 3-6          -> Data bitmap
+// 7-2054       -> Inode table
+// 2055-131071  -> Data block
+
 struct Superblock {
     uint32_t magic;
     uint32_t block_size;
@@ -20,6 +26,7 @@ struct Superblock {
     uint32_t first_data_block;
 };
 
+// Size of one Inode is 128 bytes
 struct Inode {
     uint16_t mode; // 0 for directory, 1 for file
     uint32_t size;
@@ -30,6 +37,7 @@ struct Inode {
     uint32_t pad[9];
 };
 
+// Size of one Directory Entry is 64 bytes
 struct DirEntry {
     uint32_t inode;
     uint16_t name_len;
@@ -40,12 +48,27 @@ struct DirEntry {
 class FileSystem {
 private:
 
+    struct OpenFile {
+        uint32_t inode_index;
+        uint32_t offset;
+        bool in_use;
+    };
+
+    static const int MAX_OPEN_FILES = 256;
+    OpenFile fd_table[MAX_OPEN_FILES];
+
 public:
     bool isMounted;
     DiskManager disk;
     Superblock super_cache;
-    
-    explicit FileSystem(std::string diskImagePath) : disk(diskImagePath), isMounted(false) {}
+
+    explicit FileSystem(std::string diskImagePath) 
+        : disk(diskImagePath), isMounted(false) {
+
+        for (int i = 0; i < MAX_OPEN_FILES; ++i) {
+            fd_table[i].in_use = false;
+        }
+    }
 
     Inode readInode(uint32_t inode_index);
     void writeInode(uint32_t inode_index, Inode inode);
@@ -53,8 +76,19 @@ public:
     uint32_t allocateDataBlock();
     void unmount();
 
+    bool createFile(const std::string& fileName);
+
+    int openFile(const std::string& fileName);
+    bool closeFile(int fd);
+
+    int readFile(int fd, char* buffer, uint32_t count);
+    int writeFile(int fc, const char* buffer, uint32_t count);
+
+    bool deleteFile(const std::string& fileName);
+
+    void listFiles();
 };
 
 void mkfs(std::string diskImagePath);
 
-FileSystem mount(std::string diskImagePath);
+FileSystem* mount(std::string diskImagePath);

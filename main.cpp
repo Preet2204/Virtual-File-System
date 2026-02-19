@@ -1,10 +1,8 @@
-// Virtual File System 
-#include <iostream>
-#include "fs/fs.h"
+// Virtual File System
+#include "cli/cli.h"
 
-int main () {
-
-    DiskManager disk("vdisk.img");
-    mkfs("vdisk.img");
-
+int main() {
+    CLI cli;
+    cli.run();
+    return 0;
 }

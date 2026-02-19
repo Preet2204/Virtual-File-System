@@ -1,8 +1,8 @@
 #include <string>
 #include <fstream>      // For File I/O Stream
 #include <stdexcept>    // For Exception Handling
-#include <cstdint>
-#include <algorithm>
+#include <cstdint>      // For Data types like uint32_t, uint64_t
+#include <algorithm>    // For fill method
 #include "disk.h"
 
 DiskManager::DiskManager(std::string diskImagePath_) : diskImagePath(diskImagePath_) {
@@ -17,7 +17,7 @@ DiskManager::DiskManager(std::string diskImagePath_) : diskImagePath(diskImagePa
     // Find Disk Size
     disk.seekg(0, std::ios::end);
     std::streamoff diskSize = disk.tellg();
-    
+
     if (diskSize < 0) {
         throw std::runtime_error(std::string("Failed to determine disk size ") + diskImagePath);
     }
@@ -47,7 +47,6 @@ void DiskManager::readBlock(uint32_t blockNum, void* buffer) {
     char* bufferChar = static_cast<char*>(buffer);
 
     disk.clear();
-
     disk.seekg(static_cast<std::uint64_t>(blockNum) * blockSize, std::ios::beg);
 
     if(!disk.good()) {
